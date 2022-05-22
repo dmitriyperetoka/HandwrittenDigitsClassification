@@ -1,23 +1,54 @@
 import numpy as np
-import pandas as pd
 import tensorflow as tf
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import precision_score
 from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
 
-(x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
-assert x_train.shape == (60000, 28, 28)
-assert x_test.shape == (10000, 28, 28)
-assert y_train.shape == (60000,)
-assert y_test.shape == (10000,)
+TRAIN_SAMPLE_SIZE = 6000
+TEST_SIZE = 0.3
+RANDOM_STATE = 40
 
-x_train = np.reshape(x_train, (60000, 784))[:6000]
-y_train = y_train[:6000]
-classes = np.unique(y_train)
 
-x_train, x_test, y_train, y_test = train_test_split(x_train, y_train, test_size=0.3, random_state=40)
-proportions = pd.Series(y_train).value_counts(normalize=True)
+def get_dataset():
+    (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+    assert x_train.shape == (60000, 28, 28)
+    assert x_test.shape == (10000, 28, 28)
+    assert y_train.shape == (60000,)
+    assert y_test.shape == (10000,)
 
-print('x_train shape:', x_train.shape)
-print('x_test shape:', x_test.shape)
-print('y_train shape:', y_train.shape)
-print('y_test shape:', y_test.shape)
-print('Proportion of samples per class in train set:', proportions, sep='\n')
+    x = np.reshape(x_train, (x_train.shape[0], x_train.shape[1] * x_train.shape[2]))[:TRAIN_SAMPLE_SIZE]
+    y = y_train[:TRAIN_SAMPLE_SIZE]
+
+    return train_test_split(x, y, test_size=TEST_SIZE, random_state=RANDOM_STATE)
+
+
+def fit_predict_eval(model, features_train, features_test, target_train, target_test):
+    model.fit(features_train, target_train)
+    prediction = model.predict(features_test)
+    return precision_score(target_test, prediction, average='macro')
+
+
+def main():
+    x_train, x_test, y_train, y_test = get_dataset()
+
+    models_scores = {
+        KNeighborsClassifier(): None,
+        DecisionTreeClassifier(): None,
+        LogisticRegression(random_state=RANDOM_STATE): None,
+        RandomForestClassifier(): None,
+    }
+
+    for model in models_scores:
+        score = fit_predict_eval(model, x_train, x_test, y_train, y_test)
+        models_scores[model] = score
+        print(f'Model: {model}\nAccuracy: {score}\n')
+
+    best_model, best_score = max(models_scores.items(), key=lambda x: x[1])
+    print(f'The answer to the question: {best_model.__class__.__name__} - {best_score}')
+
+
+if __name__ == '__main__':
+    main()
